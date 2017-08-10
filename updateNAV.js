@@ -53,7 +53,7 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
     //write to the database
     var doc = require('dynamodb-doc');
     var dynamo = new doc.DynamoDB();
-    var tableName = "NavHistory";
+    var tableName = "NAVHistory";
     var item = {
         RequestUUID: requestUUID,
         ICIN: ICIN,
