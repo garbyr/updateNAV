@@ -39,6 +39,7 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
     console.log("last sequence "+lastSequence);
     console.log("expected last sequence "+expectedLastSequence);
     console.log("sequence floor "+sequenceFloor);
+   /*
     if (expectedLastSequence > LastSequence) {
         raiseError(ICIN, NAV, sequence, dateSequence, requestUUID, dateTime, user, "Incorrect sequence for frequency " + frequency +" : the expected sequence > actual last sequence");
         context.fail();
@@ -48,7 +49,7 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
         context.fail();
         return;
     }
-
+    */
     //write to the database
     var doc = require('dynamodb-doc');
     var dynamo = new doc.DynamoDB();
@@ -97,12 +98,12 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
 }
 
 getLatestNAV = function (ICIN) {
-    var lastSequence;
+    var lastSequence = 123;
     return lastSequence;
 }
 
 getExpectedSequence = function (sequence) {
-    var expectedLastSequence;
+    var expectedLastSequence = 123;
     return expectedLastSequence;
 }
 
