@@ -5,7 +5,7 @@ aws.config.update({ region: 'eu-west-1' });
 
 exports.handler = (event, context, callback) => {
     //parse the event from SNS
-
+    console.log(event);
     var messageObj = event.Records[0].Sns.Message;
     var message = JSON.parse(messageObj);
 
