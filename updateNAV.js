@@ -51,7 +51,7 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
     }
     */
     //write to the database
-    var dynamo = new doc.DynamoDB();
+    var dynamo = new aws.DynamoDB();
     var tableName = "NAVHistory";
     var item = {
         RequestUUID: {"S": requestUUID},
@@ -107,8 +107,7 @@ getExpectedSequence = function (sequence) {
 
 raiseError = function (ICIN, NAV, sequence, dateSequence, requestUUID, dateTime, user, error) {
     //write to the database
-    var doc = require('dynamodb-doc');
-    var dynamo = new doc.DynamoDB();
+    var dynamo = new aws.DynamoDB();
     var tableName = "ICINErrorLog";
     var item = {
         RequestUUID: {"S": requestUUID},
