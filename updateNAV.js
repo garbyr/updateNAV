@@ -10,7 +10,7 @@ exports.handler = (event, context, callback) => {
     var message = JSON.parse(messageObj);
 
     console.log(messageObj);
-    var dateSequence = new Date().getTime();
+    var dateSequence = new Date().getTime().toString();
     var dateTime = new Date().toUTCString();
     //execute the main process
     console.log("calling main");
@@ -33,8 +33,8 @@ sendLambdaSNS = function (event, context, message, topic, subject) {
 mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, dateSequence, dateTime, sequence, category, frequency, user, description) {
     //check if NAV change is allowed - is it next in sequence or update of old?
     var lastSequence = getLatestNAV(ICIN);
-    var expectedLastSequence = getExpectedSequence(sequence);
-    var sequenceFloor = sequence - 500;
+    var expectedLastSequence = getExpectedSequence(parseInt(sequence));
+    var sequenceFloor = parseInt(sequence) - 500;
     console.log("sequence in "+sequence);
     console.log("last sequence "+lastSequence);
     console.log("expected last sequence "+expectedLastSequence);
@@ -51,17 +51,16 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
     }
     */
     //write to the database
-    var doc = require('dynamodb-doc');
     var dynamo = new doc.DynamoDB();
     var tableName = "NAVHistory";
     var item = {
-        RequestUUID: requestUUID,
-        ICIN: ICIN,
-        NAV: parseFloat(NAV),
-        UpdatedTimeStamp: parseInt(dateSequence),
-        UpdatedDateTime: dateTime,
-        UpdateUser: user,
-        Sequence: parseInt(sequence)
+        RequestUUID: {"S": requestUUID},
+        ICIN: {"S" :ICIN},
+        NAV: {"N": NAV},
+        UpdatedTimeStamp: {"N": dateSequence},
+        UpdatedDateTime: {"S": dateTime},
+        UpdateUser: {"S": user},
+        Sequence: {"N": sequence}
     }
 
     var params = {
@@ -78,16 +77,15 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
             console.log("SUCCESS", data);
             console.log("process SRRI = ", calculateSRRI);
             if (calculateSRRI == "Yes") {
-                console.log("sending calculation request");
                 var message = {
                     requestUUID: requestUUID,
                     ICIN: ICIN,
-                    NAV: parseFloat(NAV),
-                    sequence: parseInt(sequence),
+                    NAV: NAV,
+                    sequence: sequence,
                     frequency: frequency,
                     category: category,
                     user: user,
-                    description: description
+                    shareClassDescription: description
                 }
                 console.log("requesting calculation preparation", message);
                 sendLambdaSNS(event, context, message, "arn:aws:sns:eu-west-1:437622887029:prepareCalculationRequest", "prepare calculation request");
@@ -113,15 +111,15 @@ raiseError = function (ICIN, NAV, sequence, dateSequence, requestUUID, dateTime,
     var dynamo = new doc.DynamoDB();
     var tableName = "ICINErrorLog";
     var item = {
-        RequestUUID: requestUUID,
-        ICIN: ICIN,
-        NAV: parseFloat(NAV),
-        CreatedTimeStamp: parseInt(dateSequence),
-        CreatedDateTime: dateTime,
-        CreateUser: user,
-        Sequence: parseInt(sequence),
-        Stage: "Update NAV",
-        Error: error
+        RequestUUID: {"S": requestUUID},
+        ICIN: {"S": ICIN},
+        NAV: {"N": NAV},
+        CreatedTimeStamp: {"N": dateSequence},
+        CreatedDateTime: {"S": dateTime},
+        CreateUser: {"S": user},
+        Sequence: {"N": sequence},
+        Stage: {"S": "Update NAV"},
+        Error: {"S": error}
     }
 
     var params = {
