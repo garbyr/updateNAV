@@ -1,6 +1,9 @@
 // dependencies
 const aws = require('aws-sdk');
 aws.config.update({ region: 'eu-west-1' });
+var DV = require('./dateValidator.js');
+error = false;
+errorMessage = [];
 
 
 exports.handler = (event, context, callback) => {
@@ -9,12 +12,12 @@ exports.handler = (event, context, callback) => {
     var messageObj = event.Records[0].Sns.Message;
     var message = JSON.parse(messageObj);
 
-    console.log(messageObj);
+    //console.log(messageObj);
     var dateSequence = new Date().getTime().toString();
     var dateTime = new Date().toUTCString();
     //execute the main process
-    console.log("calling main");
-    mainProcess(context, event, message.calculateSRRI, message.requestUUID, message.ICIN, message.NAV, dateSequence, dateTime, message.sequence, message.category, message.frequency, message.user, message.description);
+    console.log("calling main", message);
+    mainProcess(context, event, message.calculateSRRI, message.requestUUID, message.ICIN, message.NAV, dateSequence, dateTime, message.expectedSequence, message.category, message.frequency, message.user, message.description, message.calculationDate);
 }
 
 
@@ -30,12 +33,18 @@ sendLambdaSNS = function (event, context, message, topic, subject) {
 }
 
 
-mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, dateSequence, dateTime, sequence, category, frequency, user, description) {
-    //check if NAV change is allowed - is it next in sequence or update of old?
-    var lastSequence = getLatestNAV(ICIN);
-    var expectedLastSequence = getExpectedSequence(parseInt(sequence));
-    var sequenceFloor = parseInt(sequence) - 500;
-    console.log("sequence in "+sequence);
+mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, dateSequence, dateTime, expectedSequence, category, frequency, user, description, dateIn) {
+//calculate new, last and expected last sequence for the ICIN
+
+    var newSequence = createSequence(dateIn, frequency, ICIN);
+    if(error){
+        raiseError((ICIN, NAV, newSequence, dateSequence, requestUUID, dateTime, user));
+        return;
+    }
+    var lastSequence = getLastSequence(ICIN);
+    var expectedLastSequence = getExpectedLastSequence(newSequence, dateIn);
+    var sequenceFloor = parseInt(newSequence) - 500;
+    console.log("sequence in "+newSequence);
     console.log("last sequence "+lastSequence);
     console.log("expected last sequence "+expectedLastSequence);
     console.log("sequence floor "+sequenceFloor);
@@ -57,10 +66,11 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
         RequestUUID: {"S": requestUUID},
         ICIN: {"S" :ICIN},
         NAV: {"N": NAV},
+        Frequency:{"S": frequency},
         UpdatedTimeStamp: {"N": dateSequence},
         UpdatedDateTime: {"S": dateTime},
         UpdateUser: {"S": user},
-        Sequence: {"N": sequence}
+        Sequence: {"N": newSequence}
     }
 
     var params = {
@@ -81,7 +91,7 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
                     requestUUID: requestUUID,
                     ICIN: ICIN,
                     NAV: NAV,
-                    sequence: sequence,
+                    sequence: newSequence,
                     frequency: frequency,
                     category: category,
                     user: user,
@@ -95,20 +105,38 @@ mainProcess = function (context, event, calculateSRRI, requestUUID, ICIN, NAV, d
     });
 }
 
-getLatestNAV = function (ICIN) {
+getLastSequence = function (ICIN) {
     var lastSequence = 123;
     return lastSequence;
 }
 
-getExpectedSequence = function (sequence) {
-    var expectedLastSequence = 123;
+getExpectedLastSequence = function (sequence, dateIn) {
+    var expectedLastSequence;
+    var week = parseInt(sequence.substr(4, 2));
+    if (week > 1){
+        week = week - 1;
+        if (week < 9){
+            expectedLastSequence = (sequence.substr(0,4)+"0"+week.toString());
+        }else{
+            expectedLastSequence = (sequence.substr(0,4)+week.toString());
+        }
+    } else{
+        var date = new Date(Date.UTC(parseInt(dateIn.substr(6,4)),(parseInt(dateIn.substr(3,2)-1)),parseInt(dateIn.substr(0,2)),0,0,0));
+        var year = parseInt(date.getFullYear());
+        var expectedYear = (year - 1).toString();
+        var DV = require('dateValidater.js');
+        var weeksInYear = new DV.getWeeksInYearForYear(expectedYear);
+        expectedLastSequence = expectedYear + weeksInYear;
+
+        }
+    
     return expectedLastSequence;
 }
 
-raiseError = function (ICIN, NAV, sequence, dateSequence, requestUUID, dateTime, user, error) {
+raiseError = function (ICIN, NAV, sequence, dateSequence, requestUUID, dateTime, user) {
     //write to the database
     var dynamo = new aws.DynamoDB();
-    var tableName = "ICINErrorLog";
+    var tableName = "errorLog";
     var item = {
         RequestUUID: {"S": requestUUID},
         ICIN: {"S": ICIN},
@@ -118,7 +146,7 @@ raiseError = function (ICIN, NAV, sequence, dateSequence, requestUUID, dateTime,
         CreateUser: {"S": user},
         Sequence: {"N": sequence},
         Stage: {"S": "Update NAV"},
-        Error: {"S": error}
+        ErrorMessage: {"S": errorMessage}
     }
 
     var params = {
@@ -137,6 +165,19 @@ raiseError = function (ICIN, NAV, sequence, dateSequence, requestUUID, dateTime,
         }
         
     });
+}
+
+createSequence = function(dateIn, frequency, ICIN){
+    var dateInDate = DV.dateFactory(dateIn);
+    
+    if(DV.isValidDate(dateInDate)){
+         var sequence = DV.sequenceFactory(dateInDate, frequency);
+    } else{
+        sequence = "";
+        error = true;
+        errorMessage.push("ICIN: "+ICIN + "- Invalid date entered, NAV not updated");
+    }
+    return sequence;
 }
 
 

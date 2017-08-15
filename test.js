@@ -24,7 +24,7 @@ var event = {
                     frequency: 'Weekly',
                     category: 'Market',
                     user: 'Gary',
-                    sequence: 201701,
+                    calculationDate: '21/07/2017',
                     description: 'ICIN x12345'
                 }
             }
